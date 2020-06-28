@@ -18,10 +18,10 @@
 #define DMA_REG_CTR             0x0c
 //#define DMA_REG_SR              0x10
 
-#define DMA_CTR_EN            (1 << 7)
-#define DMA_CTR_IE            (1 << 6)
-#define DMA_CTR_STA           (1 << 5)
-#define DMA_CTR_IRQ           (1 << 4)
+#define DMA_CTR_EN            (1 << 3)  // module enable
+#define DMA_CTR_IE            (1 << 2)  // interrupt enable
+#define DMA_CTR_STA           (1 << 1)  // start
+#define DMA_CTR_IRQ           (1 << 0)  // interrupt request
 
 //#define DMA_SR_IF             (1 << 1)
 //#define DMA_SR_TIP            (1 << 0)

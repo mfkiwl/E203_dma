@@ -1,11 +1,12 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Author: Venci Freeman, copyright (c) 2020
+// Author: Yang Wenxi, copyright (c) 2020
 // E-mail: vencifreeman16@sjtu.edu.cn
 // School: Shanghai Jiao Tong University
 // File Name: FIFO
 // Details: 
 // Release History:
-// - Version 0.1 20/06/23: Create.
+// - Version 0.1 20/06/23: Create;
+// - Version 0.2 20/06/28: Fix an error.
 ////////////////////////////////////////////////////////////////////////////////
 
 module fifo (
@@ -23,7 +24,7 @@ module fifo (
 );
 
 reg         write_flag, read_flag;
-reg  [3:0]  write_ptr, read_ptr;
+reg  [9:0]  write_ptr, read_ptr;
 reg [31:0]  fifo_mem[0:511];
 
 assign dout = fifo_mem[read_ptr];
@@ -46,7 +47,7 @@ always @ (posedge clk) begin
   if (!rst_n)
     write_ptr <= 1'b0;
   else if (!full && write_req)
-    write_ptr <= (write_ptr == 16 - 1) ? 0 : write_ptr + 1;
+    write_ptr <= (write_ptr == 10'b0111111111) ? 0 : write_ptr + 1;
 end
 
 // This always part controls read_ptr.
@@ -54,7 +55,7 @@ always @ (posedge clk) begin
   if (!rst_n)
     read_ptr <= 1'b0;
   else if (!empty && read_req)
-    read_ptr <= (read_ptr == 16 - 1) ? 0 : read_ptr + 1;
+    read_ptr <= (read_ptr == 10'b0111111111) ? 0 : read_ptr + 1;
 end
 
 // This always part controls write_flag.
@@ -62,7 +63,7 @@ always @ (posedge clk) begin
   if (!rst_n)
     write_flag <= 1'b0;
   else if (!full && write_req)
-    write_flag <= (write_ptr == 16 - 1) ? ~write_flag : write_flag;
+    write_flag <= (write_ptr == 10'b0111111111) ? ~write_flag : write_flag;
 end
 
 // This always part controls read_flag.
@@ -70,7 +71,7 @@ always @ (posedge clk) begin
   if (!rst_n)
     read_flag <= 1'b0;
   else if (!empty && read_req)
-    read_flag <= (read_ptr == 16 - 1) ? ~read_flag : read_flag;
+    read_flag <= (read_ptr == 10'b0111111111) ? ~read_flag : read_flag;
 end
 
 // This always part controls full.

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Author: Venci Freeman, copyright (c) 2020
+// Author: Yang Wenxi, copyright (c) 2020
 // E-mail: vencifreeman16@sjtu.edu.cn
 // School: Shanghai Jiao Tong University
 // File Name: core
@@ -23,16 +23,16 @@ module dma_core (
 	input  wire[31:0] src_addr_reg,
 	input  wire[31:0]	dst_addr_reg,
 	input  wire[31:0]	len_addr_reg,
-	input  wire [7:0]	sta_addr_reg,
+	input  wire[ 7:0]	sta_addr_reg,
 	input  wire	      start,
 
-  output wire       dma_irq,                // 中断请求
-  output wire       dma_icb_cmd_valid,      // 向从设备发送读写请求
-  output wire       dma_icb_cmd_read,       // 读写操作指示
-  output wire       dma_icb_rsp_ready,      // 向从设备返回的读写反馈接受信号，为高表示主设备接受
-  output wire[31:0] dma_icb_cmd_addr,       // 读写地址
-  output wire[31:0] dma_icb_cmd_wdata,      // 写操作的数据
-  output wire [3:0] dma_icb_cmd_wmask       // 写操作的字节掩码
+  output reg        dma_irq,                // 中断请求
+  output reg        dma_icb_cmd_valid,      // 向从设备发送读写请求
+  output reg        dma_icb_cmd_read,       // 读写操作指示
+  output reg        dma_icb_rsp_ready,      // 向从设备返回的读写反馈接受信号，为高表示主设备接受
+  output reg [31:0] dma_icb_cmd_addr,       // 读写地址
+  output reg [31:0] dma_icb_cmd_wdata,      // 写操作的数据
+  output reg [ 3:0] dma_icb_cmd_wmask       // 写操作的字节掩码
 
 );
 
@@ -64,15 +64,6 @@ module dma_core (
   reg  [31:0] dst_end;
 
 // 作为master的总线时序定义
-  assign dma_irq = (len_addr_reg == 32'h0) ? 1'b0 : 1'b1;
-  assign dma_icb_cmd_valid =  state_curr[0] & dma_icb_cmd_ready ? 1'b1 : (state_curr[1] & dma_icb_cmd_ready ? 1'b1 : 1'b0); 
-  assign dma_icb_cmd_addr  =  state_curr[0] ? read_addr : (state_curr[1] ? write_addr : 32'h0);
-  assign dma_icb_cmd_read  =  state_curr[0] ? 1'b1 : 1'b0; 
-  assign dma_icb_cmd_wdata =  fifo_read_data;
-  assign dma_icb_cmd_wmask =  4'b1111;
-  assign dma_icb_rsp_ready =  state_curr[0] & dma_icb_cmd_valid ? 1'b1 : (state_curr[1] & dma_icb_cmd_valid ? 1'b1 : 1'b0); 
-  assign dma_icb_rsp_err   =  dma_icb_rsp_err;
-
   assign dma_ini_en   = state_curr[0] & start;
   assign length       = (len_addr_reg - 1'b1) << len_addr_reg[1:0];
   assign src_end_next = src_addr_reg + length;
@@ -86,6 +77,78 @@ module dma_core (
 
   assign state_next = state_curr[0] & start ? READ : (state_curr[1] ? WRITE : (state_curr[2] & dma_irq ? IDLE : (state_curr[2] ? READ : state_curr))); 
 
+always @ (posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    dma_irq <= 1'b0;
+  else if (state_curr[2] == 1'b1)
+    dma_irq <= 1'b1;
+  else
+    dma_req <= 1'b0;
+end
+
+always @ (posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    dma_icb_rsp_valid <= 1'b0;
+  else if (state_curr[0] && dma_icb_cmd_ready || state_curr[1] && dma_icb_cmd_ready)
+    dma_icb_rsp_valid <= 1'b1;
+  else
+    dma_icb_rsp_valid <= 1'b0;
+end
+
+always @ (posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    dma_icb_cmd_addr <= 32'h0;
+  else if (state_curr[0])
+    dma_icb_cmd_addr <= read_addr;
+  else if (state_curr[1])
+    dma_icb_cmd_addr <= write_addr;
+  else
+    dma_icb_cmd_addr <= 32'h0;
+end
+
+always @ (posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    dma_icb_cmd_read <= 1'b0;
+  else if (state_curr[1])
+    dma_icb_cmd_read <= 1'b1;
+  else
+    dma_icb_cmd_addr <= 1'b0;
+end
+
+always @ (posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    dma_icb_cmd_wdata <= 32'h0;
+  else if (state_curr[2])
+    dma_icb_cmd_wdata <= fifo_read_data;
+  else
+    dma_icb_cmd_wdata <= 32'h0;
+end
+
+always @ (posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    dma_icb_cmd_wmask <= 4'b0;
+  else if (state_curr[2])
+    dma_icb_cmd_wmask <= 4'b1111;
+  else
+    dma_icb_cmd_wmask <= 4'b0;
+end
+
+always @ (posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    dma_icb_rsp_ready <= 1'b0;
+  else if (state_curr[1] && dma_icb_cmd_valid || state_curr[2] && dma_icb_cmd_valid)
+    dma_icb_rsp_ready <= 1'b1;
+  else
+    dma_icb_rsp_ready <= 1'b0;
+end
+
+always @ (posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    dma_icb_rsp_err <= 1'b0;
+  else
+    dma_icb_rsp_err <= 1'b0;
+end
+
 // 有限状态机：空闲/读/写
 always @ (posedge clk or negedge rst_n) begin
     if (!rst_n)
@@ -98,7 +161,7 @@ always @ (posedge clk or negedge rst_n) begin
     if (!rst_n)
       size <= 2'b0;
     else if (dma_ini_en)
-      size <=  len_addr_reg[1:0];
+      size <= len_addr_reg[1:0];
 end
 
 always @ (posedge clk or negedge rst_n) begin
@@ -121,7 +184,7 @@ always @ (posedge clk or negedge rst_n) begin
     read_addr <= 32'h0;
   else if (dma_ini_en)
     read_addr <= src_addr_reg;
-  else if (state_curr[0])
+  else if (state_curr[1])
     read_addr <= 32'h0;
   else if (read_addr_en)
     read_addr <= read_addr + 3'b100;
@@ -135,7 +198,7 @@ always @ (posedge clk or negedge rst_n) begin
     write_addr <= 32'h0;
   else if (dma_ini_en)
     write_addr <= dst_addr_reg;
-  else if (state_curr[0])
+  else if (state_curr[2])
     write_addr <= 32'h0;
   else if (write_addr_en)
     write_addr <= write_addr + 3'b100;
